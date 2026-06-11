@@ -1,3 +1,67 @@
+/* Custom Fonts */
+@font-face {
+  font-family: 'MBCorpoATextCond';
+  src: url('/fonts/MBCorpoATextCond-Regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'MBCorpoATitleCond';
+  src: url('/fonts/MBCorpoATitleCond-Regular (1).otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'MBCorpoATitleCondOffice';
+  src: url('/fonts/MBCorpoATitleCondOffice-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'MBCorpoATitleOffice';
+  src: url('/fonts/MBCorpoATitleOffice-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'MBCorpoSTextLight';
+  src: url('/fonts/MBCorpoSText-Light (1).otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'MBCorpoSTextOffice';
+  src: url('/fonts/MBCorpoSTextOffice-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'MBCorpoSTextOffice';
+  src: url('/fonts/MBCorpoSTextOffice-Bold.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'MBCorpoSTextOffice';
+  src: url('/fonts/MBCorpoSTextOffice-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'MBCorpoSTitleLight';
+  src: url('/fonts/MBCorpoSTitle-Light.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+}
+
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";

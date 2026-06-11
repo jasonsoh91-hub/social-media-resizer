@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
-import { Download, Upload, Image as ImageIcon, Trash2, ZoomIn, ZoomOut, MoveLeft, MoveRight, MoveUp, MoveDown, RotateCcw } from "lucide-react";
+import { Download, Upload, Image as ImageIcon, Trash2, ZoomIn, ZoomOut, MoveLeft, MoveRight, MoveUp, MoveDown, RotateCcw, ArrowRight, Type, ChevronRight } from "lucide-react";
 
 export interface SocialMediaPreset {
   id: string;
@@ -60,15 +60,84 @@ export interface ImageAdjustments {
   panY: number;
 }
 
+export interface TextOverlay {
+  text: string;
+  fontFamily: string;
+  color: string;
+  fontSize: number;
+  x: number;
+  y: number;
+  enabled: boolean;
+}
+
+export const AVAILABLE_FONTS = [
+  // Custom MB Corp Fonts
+  "MBCorpoATextCond",
+  "MBCorpoATitleCond",
+  "MBCorpoATitleCondOffice",
+  "MBCorpoATitleOffice",
+  "MBCorpoSTextLight",
+  "MBCorpoSTextOffice",
+  "MBCorpoSTitleLight",
+  // System Fonts
+  "Arial",
+  "Helvetica",
+  "Times New Roman",
+  "Georgia",
+  "Verdana",
+  "Courier New",
+  "Impact",
+  "Comic Sans MS",
+  "Trebuchet MS",
+  "Arial Black",
+  "Palatino",
+  "Lucida Grande",
+  "Tahoma",
+  "Geneva",
+  "Optima",
+  "Avenir",
+  "Menlo",
+  "Monaco",
+  "Gill Sans",
+  "Candara",
+  "Segoe UI",
+  "Roboto",
+  "Open Sans",
+  "Lato",
+  "Montserrat",
+  "Oswald",
+  "Raleway",
+  "Playfair Display",
+  "Merriweather",
+  "Source Sans Pro",
+  "Helvetica Neue",
+  "Baskerville",
+];
+
+export const FONT_COLORS = [
+  { name: "White", value: "#FFFFFF" },
+  { name: "Black", value: "#000000" },
+  { name: "Red", value: "#FF0000" },
+  { name: "Blue", value: "#0000FF" },
+  { name: "Green", value: "#00FF00" },
+  { name: "Yellow", value: "#FFFF00" },
+  { name: "Orange", value: "#FFA500" },
+  { name: "Purple", value: "#800080" },
+  { name: "Pink", value: "#FFC0CB" },
+  { name: "Gray", value: "#808080" },
+];
+
 export interface ProcessedImage {
   preset: SocialMediaPreset;
   fitMode: FitMode;
   dataUrl: string;
   blob: Blob;
   adjustments: ImageAdjustments;
+  textOverlay: TextOverlay;
 }
 
 export default function Home() {
+  const [step, setStep] = useState<1 | 2>(1);
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [originalFile, setOriginalFile] = useState<File | null>(null);
   const [selectedPresets, setSelectedPresets] = useState<Set<string>>(new Set());
@@ -79,6 +148,9 @@ export default function Home() {
   const [processedImages, setProcessedImages] = useState<ProcessedImage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [originalImageDimensions, setOriginalImageDimensions] = useState({ width: 0, height: 0 });
+  const [globalText, setGlobalText] = useState("");
+  const [globalFontFamily, setGlobalFontFamily] = useState("MBCorpoSTextOffice");
+  const [globalTextColor, setGlobalTextColor] = useState("#000000");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadAndConvertImage = useCallback(async (file: File): Promise<string | null> => {
@@ -233,7 +305,8 @@ export default function Home() {
     sourceImage: HTMLImageElement,
     preset: SocialMediaPreset,
     fitMode: FitMode,
-    adjustments: ImageAdjustments
+    adjustments: ImageAdjustments,
+    textOverlay: TextOverlay
   ): string => {
     const canvas = document.createElement("canvas");
     canvas.width = preset.width;
@@ -267,6 +340,24 @@ export default function Home() {
       scaledDx, scaledDy, scaledDWidth, scaledDHeight
     );
 
+    if (textOverlay.enabled && textOverlay.text) {
+      ctx.save();
+      ctx.font = `${textOverlay.fontSize}px "${textOverlay.fontFamily}"`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      // Add stroke for better visibility
+      ctx.strokeStyle = textOverlay.color === "#000000" ? "#FFFFFF" : "#000000";
+      ctx.lineWidth = Math.max(2, textOverlay.fontSize / 15);
+      ctx.lineJoin = "round";
+      ctx.strokeText(textOverlay.text, textOverlay.x, textOverlay.y);
+
+      // Fill text with selected color
+      ctx.fillStyle = textOverlay.color;
+      ctx.fillText(textOverlay.text, textOverlay.x, textOverlay.y);
+      ctx.restore();
+    }
+
     return canvas.toDataURL("image/png", 0.95);
   }, []);
 
@@ -287,7 +378,15 @@ export default function Home() {
       const preset = [...SOCIAL_PRESETS, ...customPresets].find(p => p.id === presetId);
       if (!preset) continue;
 
-      const dataUrl = renderImageWithAdjustments(img, preset, fitMode, { zoom: 100, panX: 0, panY: 0 });
+      const dataUrl = renderImageWithAdjustments(img, preset, fitMode, { zoom: 100, panX: 0, panY: 0 }, {
+        text: "",
+        fontFamily: "MBCorpoSTextOffice",
+        color: "#000000",
+        fontSize: Math.max(30, Math.min(preset.width, preset.height) / 15),
+        x: preset.width / 2,
+        y: preset.height / 2,
+        enabled: false
+      });
 
       const canvas = document.createElement("canvas");
       canvas.width = preset.width;
@@ -313,13 +412,22 @@ export default function Home() {
         fitMode,
         dataUrl,
         blob,
-        adjustments: { zoom: 100, panX: 0, panY: 0 }
+        adjustments: { zoom: 100, panX: 0, panY: 0 },
+        textOverlay: {
+          text: "",
+          fontFamily: "MBCorpoSTextOffice",
+          color: "#000000",
+          fontSize: Math.max(30, Math.min(preset.width, preset.height) / 15),
+          x: preset.width / 2,
+          y: preset.height / 2,
+          enabled: false
+        }
       });
     }
 
     setProcessedImages(results);
     setIsProcessing(false);
-  }, [originalImage, selectedPresets, fitMode, renderImageWithAdjustments]);
+  }, [originalImage, selectedPresets, fitMode, customPresets, renderImageWithAdjustments]);
 
   const calculateCropAndPosition = (
     srcWidth: number,
@@ -377,7 +485,7 @@ export default function Home() {
     });
 
     const image = processedImages[index];
-    const newDataUrl = renderImageWithAdjustments(img, image.preset, image.fitMode, adjustments);
+    const newDataUrl = renderImageWithAdjustments(img, image.preset, image.fitMode, adjustments, image.textOverlay);
 
     const canvas = document.createElement("canvas");
     canvas.width = image.preset.width;
@@ -410,6 +518,102 @@ export default function Home() {
     });
   }, [originalImage, processedImages, renderImageWithAdjustments]);
 
+  const updateImageTextOverlay = useCallback(async (index: number, textOverlay: TextOverlay) => {
+    if (!originalImage) return;
+
+    const img = new Image();
+    img.src = originalImage;
+
+    await new Promise(resolve => {
+      if (img.complete) resolve(undefined);
+      else img.onload = resolve;
+    });
+
+    const image = processedImages[index];
+    const newDataUrl = renderImageWithAdjustments(img, image.preset, image.fitMode, image.adjustments, textOverlay);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = image.preset.width;
+    canvas.height = image.preset.height;
+    const ctx = canvas.getContext("2d");
+
+    if (!ctx) return;
+
+    const img2 = new Image();
+    await new Promise<void>(resolve => {
+      img2.onload = () => {
+        ctx.drawImage(img2, 0, 0);
+        resolve();
+      };
+      img2.src = newDataUrl;
+    });
+
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png", 0.95));
+    if (!blob) return;
+
+    setProcessedImages(prev => {
+      const next = [...prev];
+      next[index] = {
+        ...next[index],
+        dataUrl: newDataUrl,
+        blob,
+        textOverlay
+      };
+      return next;
+    });
+  }, [originalImage, processedImages, renderImageWithAdjustments]);
+
+  const applyGlobalTextSettings = useCallback(async () => {
+    if (!originalImage || processedImages.length === 0) return;
+
+    const img = new Image();
+    img.src = originalImage;
+
+    await new Promise(resolve => {
+      if (img.complete) resolve(undefined);
+      else img.onload = resolve;
+    });
+
+    const updatedImages = await Promise.all(processedImages.map(async (image) => {
+      const newTextOverlay: TextOverlay = {
+        ...image.textOverlay,
+        text: globalText,
+        fontFamily: globalFontFamily,
+        color: globalTextColor,
+        enabled: globalText.length > 0
+      };
+
+      const newDataUrl = renderImageWithAdjustments(img, image.preset, image.fitMode, image.adjustments, newTextOverlay);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = image.preset.width;
+      canvas.height = image.preset.height;
+      const ctx = canvas.getContext("2d");
+
+      if (!ctx) return image;
+
+      const img2 = new Image();
+      await new Promise<void>(resolve => {
+        img2.onload = () => {
+          ctx.drawImage(img2, 0, 0);
+          resolve();
+        };
+        img2.src = newDataUrl;
+      });
+
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png", 0.95));
+
+      return {
+        ...image,
+        dataUrl: newDataUrl,
+        blob: blob || image.blob,
+        textOverlay: newTextOverlay
+      };
+    }));
+
+    setProcessedImages(updatedImages);
+  }, [originalImage, processedImages, renderImageWithAdjustments, globalText, globalFontFamily, globalTextColor]);
+
   const downloadSingle = useCallback((image: ProcessedImage) => {
     const a = document.createElement("a");
     a.href = image.dataUrl;
@@ -436,12 +640,22 @@ export default function Home() {
     saveAs(content, "social-media-images.zip");
   }, [processedImages]);
 
+  const goToStep2 = useCallback(() => {
+    if (processedImages.length === 0) return;
+    setStep(2);
+  }, [processedImages.length]);
+
   const clearAll = useCallback(() => {
     setOriginalImage(null);
     setOriginalFile(null);
     setSelectedPresets(new Set());
     setProcessedImages([]);
+    setCustomPresets([]);
     setOriginalImageDimensions({ width: 0, height: 0 });
+    setStep(1);
+    setGlobalText("");
+    setGlobalFontFamily("MBCorpoSTextOffice");
+    setGlobalTextColor("#000000");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -465,248 +679,366 @@ export default function Home() {
             <img src="/logo.png" alt="Logo" className="h-12 w-auto" />
             <div>
               <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Social Media Image Resizer</h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Upload an image and resize it for all your social media platforms</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Upload, resize, and add text overlays</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className={`px-3 py-1 rounded-full text-sm font-medium ${step === 1 ? "bg-primary text-primary-foreground" : "bg-slate-200 dark:bg-slate-700"}`}>
+              Step 1: Resize
+            </div>
+            <ChevronRight className="w-4 h-4 text-slate-400" />
+            <div className={`px-3 py-1 rounded-full text-sm font-medium ${step === 2 ? "bg-primary text-primary-foreground" : "bg-slate-200 dark:bg-slate-700"}`}>
+              Step 2: Add Text
             </div>
           </div>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="w-5 h-5" />
-              Upload Base Image
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {!originalImage ? (
-              <div
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
-                className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-12 text-center hover:border-slate-400 dark:hover:border-slate-600 transition-colors cursor-pointer"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <ImageIcon className="w-12 h-12 mx-auto mb-4 text-slate-400" />
-                <p className="text-lg font-medium mb-1">Click to upload or drag and drop</p>
-                <p className="text-sm text-slate-500">PNG, JPG, WEBP, TIF/TIFF up to 50MB</p>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/png, image/jpeg, image/jpg, image/webp, image/tiff, image/tif"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="relative rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800">
-                  <img
-                    src={originalImage}
-                    alt="Original"
-                    className="max-h-[400px] mx-auto object-contain"
-                  />
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-2 right-2"
-                    onClick={clearAll}
+        {step === 1 && (
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="w-5 h-5" />
+                  Upload Base Image
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!originalImage ? (
+                  <div
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                    className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-12 text-center hover:border-slate-400 dark:hover:border-slate-600 transition-colors cursor-pointer"
+                    onClick={() => fileInputRef.current?.click()}
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-                {originalFile && (
-                  <p className="text-sm text-slate-500">Original: {originalFile.name} ({originalImageDimensions.width} × {originalImageDimensions.height})</p>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {originalImage && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Select Output Sizes</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue={platforms[0] || "Custom"} className="w-full">
-                <TabsList className="flex flex-wrap h-auto gap-2 bg-transparent p-0">
-                  {platforms.map(platform => (
-                    <TabsTrigger
-                      key={platform}
-                      value={platform}
-                      className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                    >
-                      {platform}
-                    </TabsTrigger>
-                  ))}
-                  <TabsTrigger
-                    value="Custom"
-                    className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                  >
-                    Custom
-                  </TabsTrigger>
-                </TabsList>
-                {platforms.map(platform => (
-                  <TabsContent key={platform} value={platform} className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id={`select-all-${platform}`}
-                        checked={groupedPresets[platform].every(p => selectedPresets.has(p.id))}
-                        onCheckedChange={() => selectAllPlatform(platform)}
+                    <ImageIcon className="w-12 h-12 mx-auto mb-4 text-slate-400" />
+                    <p className="text-lg font-medium mb-1">Click to upload or drag and drop</p>
+                    <p className="text-sm text-slate-500">PNG, JPG, WEBP, TIF/TIFF up to 50MB</p>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/png, image/jpeg, image/jpg, image/webp, image/tiff, image/tif"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="relative rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800">
+                      <img
+                        src={originalImage}
+                        alt="Original"
+                        className="max-h-[400px] mx-auto object-contain"
                       />
-                      <Label htmlFor={`select-all-${platform}`} className="cursor-pointer">
-                        Select all {platform} formats
-                      </Label>
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2"
+                        onClick={clearAll}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {groupedPresets[platform].map(preset => (
-                        <div
-                          key={preset.id}
-                          className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+                    {originalFile && (
+                      <p className="text-sm text-slate-500">Original: {originalFile.name} ({originalImageDimensions.width} × {originalImageDimensions.height})</p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {originalImage && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Select Output Sizes</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Tabs defaultValue={platforms[0] || "Custom"} className="w-full">
+                    <TabsList className="flex flex-wrap h-auto gap-2 bg-transparent p-0">
+                      {platforms.map(platform => (
+                        <TabsTrigger
+                          key={platform}
+                          value={platform}
+                          className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                         >
+                          {platform}
+                        </TabsTrigger>
+                      ))}
+                      <TabsTrigger
+                        value="Custom"
+                        className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                      >
+                        Custom
+                      </TabsTrigger>
+                    </TabsList>
+                    {platforms.map(platform => (
+                      <TabsContent key={platform} value={platform} className="space-y-3">
+                        <div className="flex items-center gap-2">
                           <Checkbox
-                            id={preset.id}
-                            checked={selectedPresets.has(preset.id)}
-                            onCheckedChange={() => togglePreset(preset.id)}
+                            id={`select-all-${platform}`}
+                            checked={groupedPresets[platform]?.every(p => selectedPresets.has(p.id)) || false}
+                            onCheckedChange={() => selectAllPlatform(platform)}
                           />
-                          <div className="flex-1">
-                            <Label htmlFor={preset.id} className="cursor-pointer font-medium">
-                              {preset.type}
-                            </Label>
-                            <p className="text-sm text-slate-500">
-                              {preset.width} × {preset.height} {preset.unit}
-                            </p>
+                          <Label htmlFor={`select-all-${platform}`} className="cursor-pointer">
+                            Select all {platform} formats
+                          </Label>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {groupedPresets[platform]?.map(preset => (
+                            <div
+                              key={preset.id}
+                              className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+                            >
+                              <Checkbox
+                                id={preset.id}
+                                checked={selectedPresets.has(preset.id)}
+                                onCheckedChange={() => togglePreset(preset.id)}
+                              />
+                              <div className="flex-1">
+                                <Label htmlFor={preset.id} className="cursor-pointer font-medium">
+                                  {preset.type}
+                                </Label>
+                                <p className="text-sm text-slate-500">
+                                  {preset.width} × {preset.height} {preset.unit}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </TabsContent>
+                    ))}
+                    <TabsContent value="Custom" className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="custom-width">Width (px)</Label>
+                          <input
+                            id="custom-width"
+                            type="number"
+                            min="1"
+                            max="10000"
+                            value={customWidth}
+                            onChange={(e) => setCustomWidth(Number(e.target.value))}
+                            className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="custom-height">Height (px)</Label>
+                          <input
+                            id="custom-height"
+                            type="number"
+                            min="1"
+                            max="10000"
+                            value={customHeight}
+                            onChange={(e) => setCustomHeight(Number(e.target.value))}
+                            className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent"
+                          />
+                        </div>
+                      </div>
+                      <Button onClick={addCustomPreset} className="w-full">
+                        Add Custom Size
+                      </Button>
+                      {customPresets.length > 0 && (
+                        <div className="space-y-2">
+                          <Label>Added Custom Sizes</Label>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {customPresets.map(preset => (
+                              <div
+                                key={preset.id}
+                                className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+                              >
+                                <Checkbox
+                                  id={preset.id}
+                                  checked={selectedPresets.has(preset.id)}
+                                  onCheckedChange={() => togglePreset(preset.id)}
+                                />
+                                <div className="flex-1">
+                                  <Label htmlFor={preset.id} className="cursor-pointer font-medium">
+                                    {preset.width} × {preset.height}
+                                  </Label>
+                                  <p className="text-sm text-slate-500">Custom size</p>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-destructive hover:text-destructive"
+                                  onClick={() => removeCustomPreset(preset.id)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            ))}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </TabsContent>
-                ))}
-                <TabsContent value="Custom" className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="custom-width">Width (px)</Label>
-                      <input
-                        id="custom-width"
-                        type="number"
-                        min="1"
-                        max="10000"
-                        value={customWidth}
-                        onChange={(e) => setCustomWidth(Number(e.target.value))}
-                        className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="custom-height">Height (px)</Label>
-                      <input
-                        id="custom-height"
-                        type="number"
-                        min="1"
-                        max="10000"
-                        value={customHeight}
-                        onChange={(e) => setCustomHeight(Number(e.target.value))}
-                        className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent"
-                      />
-                    </div>
-                  </div>
-                  <Button onClick={addCustomPreset} className="w-full">
-                    Add Custom Size
-                  </Button>
-                  {customPresets.length > 0 && (
-                    <div className="space-y-2">
-                      <Label>Added Custom Sizes</Label>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {customPresets.map(preset => (
-                          <div
-                            key={preset.id}
-                            className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
-                          >
-                            <Checkbox
-                              id={preset.id}
-                              checked={selectedPresets.has(preset.id)}
-                              onCheckedChange={() => togglePreset(preset.id)}
-                            />
-                            <div className="flex-1">
-                              <Label htmlFor={preset.id} className="cursor-pointer font-medium">
-                                {preset.width} × {preset.height}
-                              </Label>
-                              <p className="text-sm text-slate-500">Custom size</p>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive"
-                              onClick={() => removeCustomPreset(preset.id)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        ))}
+                      )}
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
+            )}
+
+            {originalImage && selectedPresets.size > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Image Fitting Mode</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {(Object.entries(FIT_MODES) as [FitMode, { label: string; description: string }][]).map(([key, { label, description }]) => (
+                      <div
+                        key={key}
+                        className={`p-4 rounded-lg border-2 cursor-pointer transition-colors ${
+                          fitMode === key
+                            ? "border-primary bg-primary/5"
+                            : "border-slate-200 dark:border-slate-800 hover:border-slate-300"
+                        }`}
+                        onClick={() => setFitMode(key)}
+                      >
+                        <p className="font-medium">{label}</p>
+                        <p className="text-sm text-slate-500">{description}</p>
                       </div>
-                    </div>
-                  )}
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        )}
-
-        {originalImage && selectedPresets.size > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Image Fitting Mode</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {(Object.entries(FIT_MODES) as [FitMode, { label: string; description: string }][]).map(([key, { label, description }]) => (
-                  <div
-                    key={key}
-                    className={`p-4 rounded-lg border-2 cursor-pointer transition-colors ${
-                      fitMode === key
-                        ? "border-primary bg-primary/5"
-                        : "border-slate-200 dark:border-slate-800 hover:border-slate-300"
-                    }`}
-                    onClick={() => setFitMode(key)}
-                  >
-                    <p className="font-medium">{label}</p>
-                    <p className="text-sm text-slate-500">{description}</p>
+                    ))}
                   </div>
-                ))}
-              </div>
-              <Button
-                className="w-full mt-6"
-                size="lg"
-                onClick={processImages}
-                disabled={isProcessing}
-              >
-                {isProcessing ? "Processing..." : `Process ${selectedPresets.size} Image${selectedPresets.size > 1 ? "s" : ""}`}
-              </Button>
-            </CardContent>
-          </Card>
+                  <Button
+                    className="w-full mt-6"
+                    size="lg"
+                    onClick={processImages}
+                    disabled={isProcessing}
+                  >
+                    {isProcessing ? "Processing..." : `Process ${selectedPresets.size} Image${selectedPresets.size > 1 ? "s" : ""}`}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {processedImages.length > 0 && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Adjust & Download</CardTitle>
+                  <div className="flex gap-2">
+                    <Button onClick={downloadAll} variant="outline" className="gap-2">
+                      <Download className="w-4 h-4" />
+                      Download All
+                    </Button>
+                    <Button onClick={goToStep2} className="gap-2">
+                      Add Text Overlay
+                      <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {processedImages.map((image, index) => (
+                      <ImageAdjustmentCard
+                        key={index}
+                        image={image}
+                        index={index}
+                        onAdjustmentChange={updateImageAdjustments}
+                        onDownload={() => downloadSingle(image)}
+                      />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
         )}
 
-        {processedImages.length > 0 && (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Preview & Download</CardTitle>
-              <Button onClick={downloadAll} className="gap-2">
-                <Download className="w-4 h-4" />
-                Download All ({processedImages.length})
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {processedImages.map((image, index) => (
-                  <ImageAdjustmentCard
-                    key={index}
-                    image={image}
-                    index={index}
-                    onAdjustmentChange={updateImageAdjustments}
-                    onDownload={() => downloadSingle(image)}
-                  />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+        {step === 2 && (
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Type className="w-5 h-5" />
+                  Text Overlay Settings
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="overlay-text">Text</Label>
+                    <input
+                      id="overlay-text"
+                      type="text"
+                      value={globalText}
+                      onChange={(e) => setGlobalText(e.target.value)}
+                      placeholder="Enter your text here..."
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="font-family">Font Family</Label>
+                    <select
+                      id="font-family"
+                      value={globalFontFamily}
+                      onChange={(e) => setGlobalFontFamily(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent"
+                    >
+                      {AVAILABLE_FONTS.map(font => (
+                        <option key={font} value={font} style={{ fontFamily: font }}>
+                          {font}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Text Color</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {FONT_COLORS.map(color => (
+                      <button
+                        key={color.value}
+                        onClick={() => setGlobalTextColor(color.value)}
+                        className={`w-10 h-10 rounded-lg border-2 ${globalTextColor === color.value ? "border-primary ring-2 ring-primary" : "border-slate-300 dark:border-slate-700"}`}
+                        style={{ backgroundColor: color.value }}
+                        title={color.name}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <Button onClick={applyGlobalTextSettings} className="w-full" disabled={!globalText}>
+                  Apply to All Images
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Adjust Text Position & Download</CardTitle>
+                <Button onClick={downloadAll} className="gap-2">
+                  <Download className="w-4 h-4" />
+                  Download All
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {processedImages.map((image, index) => (
+                    <TextOverlayCard
+                      key={index}
+                      image={image}
+                      index={index}
+                      onTextOverlayChange={updateImageTextOverlay}
+                      onDownload={() => downloadSingle(image)}
+                    />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="flex gap-4">
+                <Button onClick={() => setStep(1)} variant="outline">
+                  <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
+                  Back to Resize
+                </Button>
+                <Button onClick={clearAll} variant="destructive">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Start Over
+                </Button>
+              </CardContent>
+            </Card>
+          </>
         )}
       </div>
     </main>
@@ -883,6 +1215,200 @@ function ImageAdjustmentCard({ image, index, onAdjustmentChange, onDownload }: I
               size="icon"
               className="h-8 w-8"
               onClick={() => handlePan("down")}
+            >
+              <MoveDown className="w-4 h-4" />
+            </Button>
+            <div></div>
+          </div>
+        </div>
+      </div>
+
+      <Button
+        variant="outline"
+        className="w-full gap-2"
+        onClick={onDownload}
+      >
+        <Download className="w-4 h-4" />
+        Download
+      </Button>
+    </div>
+  );
+}
+
+interface TextOverlayCardProps {
+  image: ProcessedImage;
+  index: number;
+  onTextOverlayChange: (index: number, textOverlay: TextOverlay) => void;
+  onDownload: () => void;
+}
+
+function TextOverlayCard({ image, index, onTextOverlayChange, onDownload }: TextOverlayCardProps) {
+  const [localText, setLocalText] = useState(image.textOverlay.text);
+  const [localFontSize, setLocalFontSize] = useState(image.textOverlay.fontSize);
+  const [localX, setLocalX] = useState(image.textOverlay.x);
+  const [localY, setLocalY] = useState(image.textOverlay.y);
+  const [isEnabled, setIsEnabled] = useState(image.textOverlay.enabled);
+
+  const updateTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+
+  useEffect(() => {
+    setLocalText(image.textOverlay.text);
+    setLocalFontSize(image.textOverlay.fontSize);
+    setLocalX(image.textOverlay.x);
+    setLocalY(image.textOverlay.y);
+    setIsEnabled(image.textOverlay.enabled);
+  }, [image.textOverlay]);
+
+  const scheduleUpdate = useCallback((textOverlay: TextOverlay) => {
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+    }
+    updateTimeoutRef.current = setTimeout(() => {
+      onTextOverlayChange(index, textOverlay);
+    }, 150);
+  }, [index, onTextOverlayChange]);
+
+  const handleTextChange = useCallback((value: string) => {
+    setLocalText(value);
+    setIsEnabled(value.length > 0);
+    scheduleUpdate({
+      ...image.textOverlay,
+      text: value,
+      enabled: value.length > 0
+    });
+  }, [image.textOverlay, scheduleUpdate]);
+
+  const handleFontSizeChange = useCallback((value: number | readonly number[]) => {
+    const newFontSize = Array.isArray(value) ? value[0] : value;
+    setLocalFontSize(newFontSize);
+    scheduleUpdate({ ...image.textOverlay, fontSize: newFontSize });
+  }, [image.textOverlay, scheduleUpdate]);
+
+  const handlePositionChange = useCallback((direction: "left" | "right" | "up" | "down") => {
+    const delta = 10;
+    let newX = localX;
+    let newY = localY;
+
+    switch (direction) {
+      case "left":
+        newX -= delta;
+        break;
+      case "right":
+        newX += delta;
+        break;
+      case "up":
+        newY -= delta;
+        break;
+      case "down":
+        newY += delta;
+        break;
+    }
+
+    setLocalX(newX);
+    setLocalY(newY);
+    scheduleUpdate({ ...image.textOverlay, x: newX, y: newY });
+  }, [localX, localY, image.textOverlay, scheduleUpdate]);
+
+  const toggleEnabled = useCallback(() => {
+    const newState = !isEnabled;
+    setIsEnabled(newState);
+    scheduleUpdate({ ...image.textOverlay, enabled: newState });
+  }, [isEnabled, image.textOverlay, scheduleUpdate]);
+
+  return (
+    <div className="space-y-4">
+      <div className="relative rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800 aspect-[4/3]">
+        <img
+          src={image.dataUrl}
+          alt={`${image.preset.platform} ${image.preset.type}`}
+          className="w-full h-full object-contain"
+        />
+        <div className="absolute top-2 left-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded flex justify-between">
+          <span>{image.preset.platform}</span>
+          <span>{image.preset.width} × {image.preset.height}</span>
+        </div>
+        <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+          {image.preset.type}
+        </div>
+      </div>
+
+      <div className="space-y-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id={`enable-text-${index}`}
+            checked={isEnabled}
+            onCheckedChange={toggleEnabled}
+          />
+          <Label htmlFor={`enable-text-${index}`} className="cursor-pointer">
+            Enable Text
+          </Label>
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-xs">Text</Label>
+          <input
+            type="text"
+            value={localText}
+            onChange={(e) => handleTextChange(e.target.value)}
+            className="w-full px-2 py-1 text-sm rounded border border-slate-300 dark:border-slate-700 bg-transparent"
+            placeholder="Enter text..."
+          />
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">Font Size: {localFontSize}px</Label>
+          </div>
+          <Slider
+            value={[localFontSize]}
+            min={10}
+            max={Math.min(image.preset.width, image.preset.height) / 5}
+            step={1}
+            onValueChange={handleFontSizeChange}
+            className="flex-1"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-xs">Text Position</Label>
+          <div className="grid grid-cols-3 gap-1 w-24 mx-auto">
+            <div></div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => handlePositionChange("up")}
+            >
+              <MoveUp className="w-4 h-4" />
+            </Button>
+            <div></div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => handlePositionChange("left")}
+            >
+              <MoveLeft className="w-4 h-4" />
+            </Button>
+            <div className="flex items-center justify-center text-xs text-slate-500">
+              <span className="text-xs">
+                {Math.round(localX)},{Math.round(localY)}
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => handlePositionChange("right")}
+            >
+              <MoveRight className="w-4 h-4" />
+            </Button>
+            <div></div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => handlePositionChange("down")}
             >
               <MoveDown className="w-4 h-4" />
             </Button>
