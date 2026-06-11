@@ -115,7 +115,7 @@ export default function Home() {
       }
     }
 
-    return new Promise<string>((resolve) => {
+    return new Promise<string | null>((resolve) => {
       const reader = new FileReader();
       reader.onload = (e) => resolve(e.target?.result as string);
       reader.onerror = () => resolve(null);
@@ -305,7 +305,8 @@ export default function Home() {
         img2.src = dataUrl;
       });
 
-      const blob = await new Promise<Blob>(resolve => canvas.toBlob(resolve, "image/png", 0.95));
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png", 0.95));
+      if (!blob) continue;
 
       results.push({
         preset,
@@ -394,7 +395,8 @@ export default function Home() {
       img2.src = newDataUrl;
     });
 
-    const blob = await new Promise<Blob>(resolve => canvas.toBlob(resolve, "image/png", 0.95));
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png", 0.95));
+    if (!blob) return;
 
     setProcessedImages(prev => {
       const next = [...prev];
@@ -723,7 +725,7 @@ function ImageAdjustmentCard({ image, index, onAdjustmentChange, onDownload }: I
   const [localPanX, setLocalPanX] = useState(image.adjustments.panX);
   const [localPanY, setLocalPanY] = useState(image.adjustments.panY);
 
-  const zoomTimeoutRef = useRef<NodeJS.Timeout>();
+  const zoomTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   useEffect(() => {
     setLocalZoom(image.adjustments.zoom);
@@ -740,8 +742,8 @@ function ImageAdjustmentCard({ image, index, onAdjustmentChange, onDownload }: I
     }, 150);
   }, [index, onAdjustmentChange]);
 
-  const handleZoomChange = useCallback((value: number[]) => {
-    const newZoom = value[0];
+  const handleZoomChange = useCallback((value: number | readonly number[]) => {
+    const newZoom = Array.isArray(value) ? value[0] : value;
     setLocalZoom(newZoom);
     scheduleUpdate({ zoom: newZoom, panX: localPanX, panY: localPanY });
   }, [localPanX, localPanY, scheduleUpdate]);
